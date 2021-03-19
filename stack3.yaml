@@ -1,0 +1,214 @@
+# NOTE: update this with your service name
+service: tvaapieventos
+
+# Create an optimized package for our functions 
+package:
+  individually: true
+
+useDotenv: true
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: '2'
+
+plugins:
+  - serverless-bundle # Package our functions with Webpack
+  - serverless-offline
+  - serverless-dotenv-plugin # Load .env as environment variables
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: ${env:REGION}
+  apiGateway:
+    shouldStartNameWithService: true
+
+functions:
+  getEventsRequest:
+      handler: controllers/events/get.main
+      role: RolDefaultFunctionRole
+      events:
+        - http:
+            path: events
+            method: get
+            cors: true
+            authorizer: aws_iam
+  addEventRequest:
+      handler: controllers/events/create.main
+      role: RolDefaultFunctionRole
+      events:
+        - http:
+            path: events
+            method: post
+            cors: true
+            authorizer: aws_iam
+  getProgramsRequest:
+      handler: controllers/programs/get.main
+      role: RolDefaultFunctionRole
+      events:
+        - http:
+            path: programs
+            method: get
+            cors: true
+            authorizer: aws_iam
+  getProgramConfigurationsRequest:
+      handler: controllers/programs/getConfigurations.main
+      role: RolDefaultFunctionRole
+      events:
+        - http:
+            path: programs/configurations/{id}
+            method: get
+            cors: true
+            authorizer: aws_iam
+  getQuestionPoolRequest:
+    handler: controllers/questionPools/getQuestionPool.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/getQuestionPool/{id}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  getQuestionsRequest:
+    handler: controllers/questionPools/getItems.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/getItems/{id}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  getQuestionPoolsRequest:
+    handler: controllers/questionPools/get.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools
+          method: get
+          cors: true
+          authorizer: aws_iam
+  addQuestionPoolsRequest:
+    handler: controllers/questionPools/create.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools
+          method: post
+          cors: true
+          authorizer: aws_iam
+  updatePositionRequest:
+    handler: controllers/questionPools/updatePosition.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/updateposition
+          method: post
+          cors: true
+          authorizer: aws_iam
+  updateQuestionPoolRequest:
+    handler: controllers/questionPools/updateQuestionPool.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/update/{id}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  updateQuestionRequest:
+    handler: controllers/questionPools/updateQuestion.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/{id}/{question_id}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  updateStatusQuestionRequest:
+    handler: controllers/questionPools/updateStatus.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/updatestatus/{id}/{question_id}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  deleteQuestionPoolRequest:
+    handler: controllers/questionPools/delete.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/{id}
+          method: post
+          cors: true
+          authorizer: aws_iam
+  deleteQuestionRequest:
+    handler: controllers/questionPools/deleteQuestion.main
+    role: RolDefaultFunctionRole
+    events:
+      - http:
+          path: questionspools/deletequestion
+          method: post
+          cors: true
+          authorizer: aws_iam
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+    RolDefaultFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:        
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSXrayWriteOnlyAccess
+        Policies:
+          - PolicyName: GeneralPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+              - Effect: Allow
+                Action:
+                - dynamodb:Scan
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/master_question_pools
+              - Effect: Allow
+                Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:BatchWriteItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/question_pools
+              - Effect: Allow
+                Action:
+                - dynamodb:Scan
+                - dynamodb:Query
+                - dynamodb:GetItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/master_program
+              - Effect: Allow
+                Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/program_objects
+              - Effect: Allow
+                Action:
+                - dynamodb:Scan
+                - dynamodb:Query
+                - dynamodb:PutItem                
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/events

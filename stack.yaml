@@ -1,0 +1,103 @@
+# igarcia 2020-05
+# Version 1.0.0
+# Automation to Secure WAFv2 (Web application Firewall)
+# Gets updates from GuardDuty (must be already configured) and blocks the CIDR /24 of attackers
+# This Template creates Lambda triggered by GuardDuty Findings and another Lambda scheduled for cleanup 
+# Resources to create: Two Lambdas, Two CloudWatch Events, IAM Role, DynamoDB Table
+# Resources to create:  One IPset for CloudFront and One IPset for ALB, it WILL NOT ceate the WebACLs or Rules to not incur in costs
+# The AWS Account should be already using GuardDuty
+# IMPORTANT: The block will occur using IPset, MANUALLY you must create a Rule referencing the IPset in a WebACL and set priority 1
+# AWS WAFv2
+
+# Welcome to Serverless!
+service: tvaeventos-login
+
+# Create an optimized package for our functions 
+package:
+  individually: true
+
+useDotenv: true
+
+frameworkVersion: '2'
+
+plugins:
+  - serverless-bundle # Package our functions with Webpack
+  - serverless-offline
+  - serverless-dotenv-plugin # Load .env as environment variables
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: us-east-2
+  apiGateway:
+    shouldStartNameWithService: true
+
+functions:
+  PostAuthenticationRequest:
+    handler: functions/post-authentication.main
+    role: AuthRole
+    events:
+      - cognitoUserPool:
+          pool: TvaPublic
+          trigger: PostAuthentication
+          existing: true
+  PreSignUpRequest:
+    handler: functions/pre-signup.main
+    role: AuthRole
+    events:
+      - cognitoUserPool:
+          pool: TvaPublic
+          trigger: PreSignUp
+          existing: true
+  PostConfirmationRequest:
+    handler: functions/post-confirmation.main
+    role: AuthRole
+    events:
+      - cognitoUserPool:
+          pool: TvaPublic
+          trigger: PostConfirmation
+          existing: true
+  SaveSessionRequest:
+    handler: functions/save-session.main
+    role: AuthRole
+    events:
+      - http:
+          path: save/session
+          method: post
+          cors: true
+          authorizer: aws_iam
+
+resources:
+  Resources:
+    AuthRole:
+      Type: AWS::IAM::Role
+      Properties:        
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSXrayWriteOnlyAccess
+        Policies:
+          - PolicyName: GeneralPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+              - Effect: Allow
+                Action:                
+                - dynamodb:PutItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/users_login 
+              - Effect: Allow
+                Action:
+                - dynamodb:Query
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                Resource: arn:aws:dynamodb:us-east-2:032457372684:table/users_public  
